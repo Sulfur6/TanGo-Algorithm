@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/Users/bytedance/proj/tango-algorithm/build",
+  "command": "/usr/bin/clang++  -I/usr/local/include -g -std=gnu++17 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX13.1.sdk -o CMakeFiles/tango_algorithm.dir/main.cpp.o -c /Users/bytedance/proj/tango-algorithm/main.cpp",
+  "file": "/Users/bytedance/proj/tango-algorithm/main.cpp",
+  "output": "CMakeFiles/tango_algorithm.dir/main.cpp.o"
+}
+]

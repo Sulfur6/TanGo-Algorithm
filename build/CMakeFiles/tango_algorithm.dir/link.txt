@@ -1,0 +1,1 @@
+/usr/bin/clang++ -g -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX13.1.sdk -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/tango_algorithm.dir/main.cpp.o -o tango_algorithm  -Wl,-rpath,/usr/local/lib /usr/local/lib/libhiredis.dylib /usr/local/lib/libredis++.dylib 

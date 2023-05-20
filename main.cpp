@@ -3,6 +3,8 @@
 #include <sstream>
 #include <sw/redis++/redis++.h>
 
+#include "SM_CTP.hpp"
+
 using namespace sw::redis;
 
 void test_read() {
@@ -16,6 +18,8 @@ void test_read() {
 }
 
 int main() {
-    test_read();
+    std::string redis_url("tcp://127.0.0.1:6379"), redis_key("scheduling_task_1");
+    static SM_CTP sm_ctp(redis_url, redis_key);
+    sm_ctp.sm_ctp_main_procedure();
     return 0;
 }

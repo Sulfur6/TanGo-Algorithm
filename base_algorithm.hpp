@@ -23,16 +23,21 @@ public:
     std::vector<Pair> task_index;
 
     Redis redis;
-    std::string redis_key;
+    std::string TASK_FIELD, CLOUD_INFO_KEY;
+    std::string redis_key, output_field;
     std::stringstream _its, _irs, _plan;
 
     AlgorithmBase(std::string redis_url, std::string redis_key) : redis(Redis(redis_url)), redis_key(redis_key) {
-        auto _task_input = redis.hget(redis_key, "input");
-        auto _network_input = redis.get("cloud_info");
+        TASK_FIELD = std::string("input");
+        CLOUD_INFO_KEY = std::string("cloud_info");
+
+        auto _task_input = redis.hget(redis_key, TASK_FIELD);
+        auto _network_input = redis.get(CLOUD_INFO_KEY);
         if (_task_input && _network_input) {
             _its = std::stringstream(*_task_input);
             _irs = std::stringstream(*_network_input);
             initialize();
+            region_set.initialize();
         } else {
             throw "Error while reading input data from redis";
         }
@@ -61,15 +66,17 @@ public:
         _irs >> region_set.region_count;
         for (int i = 1; i <= region_set.region_count; i++) {
             int id, cpu, mem, disk, cpu_rem, mem_rem, disk_rem;
-            double ucp, ump, udp;
+            int ucp, ump, udp;
+            int td, ad;
             _irs >> id >> cpu >> mem >> disk >> cpu_rem >> mem_rem >> disk_rem;
             _irs >> ucp >> ump >> udp;
-            region_set.regions.emplace_back(id, cpu, mem, disk, cpu_rem, mem_rem, disk_rem, ucp, ump, udp);
+            _irs >> td >> ad;
+            region_set.regions.emplace_back(id, cpu, mem, disk, cpu_rem, mem_rem, disk_rem, ucp, ump, udp, td, ad);
         }
         int inter_count;
         _irs >> inter_count;
         for (int i = 1; i <= inter_count; i++) {
-            int u, v, band, delay;
+            int u, v, band, delay, _;
             _irs >> u >> v >> band >> delay;
             region_set.band_inter_region[u][v] = band;
             region_set.band_inter_region[v][u] = band;
@@ -98,19 +105,23 @@ public:
         int total_cost = calc_total_cost();
         _plan << total_cost << '\n';
         for (auto task: full_task_set.tasks) {
-            _plan << task.task_id << task.region_id << '\n';
+            _plan << task.task_id << ' ' << task.region_id << '\n';
         }
-        redis.hset(redis_key, "scheduling_result", _plan.str());
+        redis.hset(redis_key, output_field, _plan.str());
     }
 
     bool try_assign(Region &region, TaskSet &task_set, Task &curr_task) {
         if (curr_task.region_id != -1) return false;
-        // if (edge_connect.edge_delay[region.region_id][task_set.tenant_id] > curr_task.delay_demand) return false;
+        if (region.tail_delay > curr_task.delay_demand) return false;
 
         // check remain computing power
         region.comp_remain -= curr_task.comp_power_demand;
+        region.mem_rem -= curr_task.mem_dem;
+        region.disk_rem -= curr_task.disk_dem;
         if (region.comp_remain < 0) {
             region.comp_remain += curr_task.comp_power_demand;
+            region.mem_rem += curr_task.mem_dem;
+            region.disk_rem += curr_task.disk_dem;
             return false;
         }
 
@@ -145,6 +156,8 @@ public:
 
     void dis_assign(Region &region, TaskSet &task_set, Task &task) {
         region.comp_remain += task.comp_power_demand;
+        region.mem_rem += task.mem_dem;
+        region.disk_rem += task.disk_dem;
         for (int i = 0; i < task_set.task_count; i++) {
             if (i == task.task_id || task_set.tasks[i].region_id == -1) continue;
             region_set.band_inter_region[task.region_id][task_set.tasks[i].region_id] += task_set.band_inter_task[task.task_id][i];
