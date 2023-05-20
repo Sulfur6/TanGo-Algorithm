@@ -5,16 +5,14 @@
 #ifndef TANGO_ALGORITHM_SM_CTP_HPP
 #define TANGO_ALGORITHM_SM_CTP_HPP
 
-#include <set>
-
 #include "base_algorithm.hpp"
 
 class SM_CTP : public AlgorithmBase {
 public:
     int feasible_task_set_count;
 
-    SM_CTP(std::string redis_url, std::string redis_key) : AlgorithmBase(redis_url, redis_key) {
-        output_field = std::string("SM_CTP_scheduling_result");
+    SM_CTP(std::string cloud_info_path, std::string task_set_path, std::string result_path) :
+        AlgorithmBase(cloud_info_path, task_set_path, result_path) {
     }
 
     void search_feasible_task_set(int x, Region &region, std::set<int> &best_fsets, std::set<int> &curr_fsets, int &best_val, int &curr_val, int &assigned_region_id) {
@@ -46,6 +44,8 @@ public:
             dis_assign(region, full_task_set, curr_task);
             curr_fsets.erase(task_id);
             curr_val -= (region_set.max_unit_price - region.unit_cpu_price) * curr_task.comp_power_demand;
+            curr_val -= (region_set.max_mem_price - region.unit_mem_price) * curr_task.mem_dem;
+            curr_val -= (region_set.max_disk_price- region.unit_disk_price) * curr_task.disk_dem;
         }
 
         search_feasible_task_set(x + 1, region, best_fsets, curr_fsets, best_val, curr_val, assigned_region_id);
@@ -70,12 +70,15 @@ public:
 
             for (auto it : best_fsets) {
                 int assigned_task_id = it;
-                assert(try_assign(region_set.regions[assigned_region_id], full_task_set, full_task_set.tasks[assigned_task_id]));
+                bool flag = try_assign(region_set.regions[assigned_region_id], full_task_set, full_task_set.tasks[assigned_task_id]);
+                if (!flag) {
+                    std::cerr << "Problem occurs in SM_CTP" << '\n';
+                }
             }
         }
         scheduling_result();
         end = clock();
-        printf("run time cost of algorithm SM_CTP is %lf second\n", double(end - start) / CLOCKS_PER_SEC);
+        _plan << "run time cost of algorithm SM_CTP is " << double(end - start) / CLOCKS_PER_SEC << "seconds\n";
     }
 };
 

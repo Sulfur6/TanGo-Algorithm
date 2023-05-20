@@ -52,14 +52,21 @@ public:
     int delay_inter_region[MAX_REGION_COUNT][MAX_REGION_COUNT];
     int band_inter_region[MAX_REGION_COUNT][MAX_REGION_COUNT];
 
-    RegionSet() : max_unit_price(-1) {}
+    RegionSet() : max_unit_price(-1), max_mem_price(-1), max_disk_price(-1) {}
 
     void initialize() {
-        max_unit_price = INT_MIN;
         for (auto region: regions) {
             max_unit_price = std::max(max_unit_price, region.unit_cpu_price);
             max_mem_price = std::max(max_mem_price, region.unit_mem_price);
             max_disk_price = std::max(max_disk_price, region.unit_disk_price);
+        }
+    }
+
+    void rebuild() {
+        for (auto region : regions) {
+            region.comp_remain = region.comp_power;
+            region.mem_rem = region.mem;
+            region.disk_rem = region.disk;
         }
     }
 };
