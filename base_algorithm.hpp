@@ -8,13 +8,19 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <set>
+
 #include <sw/redis++/redis++.h>
 
 #include "network.hpp"
 #include "task.hpp"
 
 typedef std::pair<int, int> Pair;
+
+typedef std::pair<int, int> Pair;
 using namespace sw::redis;
+
+const std::string REDIS_INPUT_FIELD = "input", REDIS_CLOUD_INFO_KEY = "cloud_info", REDIS_OUTPUT_FIELD = "scheduling_result";
 
 class AlgorithmBase {
 public:
@@ -27,8 +33,8 @@ public:
     std::stringstream _its, _irs, _plan;
 
     AlgorithmBase(std::string redis_url, std::string redis_key) : redis(Redis(redis_url)), redis_key(redis_key) {
-        auto _task_input = redis.hget(redis_key, "input");
-        auto _network_input = redis.get("cloud_info");
+        auto _task_input = redis.hget(redis_key, REDIS_INPUT_FIELD);
+        auto _network_input = redis.get(REDIS_CLOUD_INFO_KEY);
         if (_task_input && _network_input) {
             _its = std::stringstream(*_task_input);
             _irs = std::stringstream(*_network_input);
@@ -58,13 +64,16 @@ public:
     }
 
     void init_region_set() {
+        region_set.regions.clear();
         _irs >> region_set.region_count;
         for (int i = 1; i <= region_set.region_count; i++) {
             int id, cpu, mem, disk, cpu_rem, mem_rem, disk_rem;
-            double ucp, ump, udp;
+            int ucp, ump, udp;
+            int td, ad;
             _irs >> id >> cpu >> mem >> disk >> cpu_rem >> mem_rem >> disk_rem;
             _irs >> ucp >> ump >> udp;
-            region_set.regions.emplace_back(id, cpu, mem, disk, cpu_rem, mem_rem, disk_rem, ucp, ump, udp);
+            _irs >> td >> ad;
+            region_set.regions.emplace_back(id, cpu, mem, disk, cpu_rem, mem_rem, disk_rem, ucp, ump, udp, td, ad);
         }
         int inter_count;
         _irs >> inter_count;
@@ -88,29 +97,49 @@ public:
         for (auto task: full_task_set.tasks) {
             Region &region = region_set.regions[task.region_id];
             res += region.unit_cpu_price * task.comp_power_demand;
-            res += region.unit_mem_price * task.mem_dem;
-            res += region.unit_disk_price * task.disk_dem;
+//            res += region.unit_mem_price * task.mem_dem;
+//            res += region.unit_disk_price * task.disk_dem;
         }
         return res;
     }
 
-    void scheduling_result() {
-        int total_cost = calc_total_cost();
-        _plan << total_cost << '\n';
-        for (auto task: full_task_set.tasks) {
-            _plan << task.task_id << task.region_id << '\n';
+    int tail_latency() {
+        int res = -1;
+        for (auto task : full_task_set.tasks) {
+            res = std::max(res, region_set.regions[task.region_id].tail_delay);
         }
-        redis.hset(redis_key, "scheduling_result", _plan.str());
+        return res;
+    }
+
+    int avg_latency() {
+        int res = 0;
+        for (auto task : full_task_set.tasks) {
+            res += region_set.regions[task.region_id].avg_delay;
+        }
+        res /= full_task_set.task_count;
+        return res;
+    }
+
+    void scheduling_result() {
+        _plan << calc_total_cost() << ' ' <<  tail_latency() << ' ' << avg_latency() << '\n';
+        for (auto task: full_task_set.tasks) {
+            _plan << task.task_id << ' ' << task.region_id << '\n';
+        }
+        redis.hset(redis_key, REDIS_OUTPUT_FIELD, _plan.str());
     }
 
     bool try_assign(Region &region, TaskSet &task_set, Task &curr_task) {
         if (curr_task.region_id != -1) return false;
-        // if (edge_connect.edge_delay[region.region_id][task_set.tenant_id] > curr_task.delay_demand) return false;
+        if (region.tail_delay > curr_task.delay_demand) return false;
 
         // check remain computing power
         region.comp_remain -= curr_task.comp_power_demand;
+        region.mem_rem -= curr_task.mem_dem;
+        region.disk_rem -= curr_task.disk_dem;
         if (region.comp_remain < 0) {
             region.comp_remain += curr_task.comp_power_demand;
+            region.mem_rem += curr_task.mem_dem;
+            region.disk_rem += curr_task.disk_dem;
             return false;
         }
 
@@ -131,10 +160,12 @@ public:
                     if (task_set.tasks[j].region_id == -1) continue;
                     if (j == curr_task.task_id) continue;
                     region_set.band_inter_region[region.region_id][task_set.tasks[j].region_id]
-                            += task_set.band_inter_task[curr_task.task_id][j];
+                            += task_set.band_inter_task[curr_task.task_id][task_set.tasks[j].task_id];
                 }
 
                 region.comp_remain += curr_task.comp_power_demand;
+                region.mem_rem += curr_task.mem_dem;
+                region.disk_rem += curr_task.disk_dem;
                 return false;
             }
         }
@@ -145,9 +176,11 @@ public:
 
     void dis_assign(Region &region, TaskSet &task_set, Task &task) {
         region.comp_remain += task.comp_power_demand;
+        region.mem_rem += task.mem_dem;
+        region.disk_rem += task.disk_dem;
         for (int i = 0; i < task_set.task_count; i++) {
             if (i == task.task_id || task_set.tasks[i].region_id == -1) continue;
-            region_set.band_inter_region[task.region_id][task_set.tasks[i].region_id] += task_set.band_inter_task[task.task_id][i];
+            region_set.band_inter_region[task.region_id][task_set.tasks[i].region_id] += task_set.band_inter_task[task.task_id][task_set.tasks[i].task_id];
         }
         task.region_id = -1;
     }

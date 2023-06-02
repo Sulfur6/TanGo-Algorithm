@@ -6,7 +6,7 @@ project(tango_algorithm)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(tango_algorithm main.cpp network.hpp task.hpp base_algorithm.hpp SM_CTP.hpp)
+add_executable(tango_algorithm main.cpp network.hpp task.hpp base_algorithm.hpp SM_CTP.hpp SM_GRRS.hpp)
 
 # <------------ add hiredis dependency --------------->
 find_path(HIREDIS_HEADER hiredis)

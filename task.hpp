@@ -41,6 +41,17 @@ public:
             }
         }
     }
+
+    void clear() {
+        tasks.clear();
+        for (int i = 0; i < MAX_TASK_COUNT; i++) {
+            for (int j = 0; j < MAX_TASK_COUNT; j++) {
+                delay_inter_task[i][j] = INT_MAX;
+                band_inter_task[i][j] = 0;
+                conflict_inter_task[i][j] = 0;
+            }
+        }
+    }
 };
 
 #endif //TANGO_ALGORITHM_TASK_HPP
