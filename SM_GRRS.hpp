@@ -54,6 +54,7 @@ public:
         }
 
         end = clock();
+        _plan.clear();
         _plan << "run time cost of algorithm DRT_AG is " << double(end - start) / CLOCKS_PER_SEC << "seconds\n";
         scheduling_result();
     }
