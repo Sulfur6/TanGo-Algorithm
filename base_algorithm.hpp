@@ -32,19 +32,10 @@ public:
     std::string redis_key;
     std::stringstream _its, _irs, _plan;
 
-    AlgorithmBase(std::string redis_url, std::string redis_key) : redis(Redis(redis_url)), redis_key(redis_key) {
-        auto _task_input = redis.hget(redis_key, REDIS_INPUT_FIELD);
-        auto _network_input = redis.get(REDIS_CLOUD_INFO_KEY);
-        if (_task_input && _network_input) {
-            _its = std::stringstream(*_task_input);
-            _irs = std::stringstream(*_network_input);
-            initialize();
-        } else {
-            throw "Error while reading input data from redis";
-        }
-    }
+    AlgorithmBase(std::string redis_url) : redis(Redis(redis_url)) {}
 
     void init_task_set() {
+        full_task_set.clear();
         _its >> full_task_set.task_count;
         for (int i = 1; i <= full_task_set.task_count; i++) {
             int id, cpu, mem, disk, delay;
@@ -87,7 +78,14 @@ public:
         }
     }
 
-    void initialize() {
+    void initialize(std::string _redis_key) {
+        this->redis_key = _redis_key;
+        auto _task_input = redis.hget(redis_key, REDIS_INPUT_FIELD);
+        auto _network_input = redis.get(REDIS_CLOUD_INFO_KEY);
+        _its = std::stringstream(*_task_input);
+        _irs = std::stringstream(*_network_input);
+        _plan.clear();
+        _plan.str("");
         init_region_set();
         init_task_set();
     }

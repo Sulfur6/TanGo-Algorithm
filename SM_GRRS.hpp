@@ -9,9 +9,7 @@
 
 class SM_GRRS : public AlgorithmBase {
 public:
-    SM_GRRS(std::string redis_url, std::string redis_key) :
-            AlgorithmBase(redis_url, redis_key) {
-    }
+    SM_GRRS(std::string redis_url) : AlgorithmBase(redis_url) {}
 
     void build_feasible_task_set(Region &region, std::set<int> &curr_fsets, int &curr_val) {
         for (int i = 0; i < full_task_set.task_count; i++) {
@@ -26,12 +24,12 @@ public:
     }
 
     void sm_grrs_main_procedure() {
-        std::sort(region_set.regions.begin(), region_set.regions.end(),[](const Region &a, const Region &b){
+        std::sort(region_set.regions.begin(), region_set.regions.end(), [](const Region &a, const Region &b) {
             if (a.unit_cpu_price != b.unit_cpu_price) return a.unit_cpu_price < b.unit_cpu_price;
             if (a.unit_mem_price != b.unit_mem_price) return a.unit_mem_price < b.unit_mem_price;
             return a.unit_disk_price < b.unit_disk_price;
         });
-        std::sort(full_task_set.tasks.begin(), full_task_set.tasks.end(), [](const Task &a, const Task &b){
+        std::sort(full_task_set.tasks.begin(), full_task_set.tasks.end(), [](const Task &a, const Task &b) {
             if (a.comp_power_demand != b.comp_power_demand) return a.comp_power_demand > b.comp_power_demand;
             if (a.mem_dem != b.mem_dem) return a.mem_dem > b.mem_dem;
             return a.disk_dem > b.disk_dem;
@@ -45,7 +43,7 @@ public:
 
             build_feasible_task_set(region_set.regions[i], best_fsets, best_val);
 
-            assigned_task_count += (int)best_fsets.size();
+            assigned_task_count += (int) best_fsets.size();
 
             // for (auto it : best_fsets) {
             //     int assigned_tenant_id = it.first, assigned_task_id = it.second;
