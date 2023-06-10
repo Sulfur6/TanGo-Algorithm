@@ -76,6 +76,7 @@ public:
             region_set.delay_inter_region[u][v] = delay;
             region_set.delay_inter_region[v][u] = delay;
         }
+        region_set.initialize();
     }
 
     void initialize(std::string _redis_key) {

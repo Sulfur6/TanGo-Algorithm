@@ -55,6 +55,7 @@ public:
     RegionSet() : max_unit_price(-1), max_mem_price(-1), max_disk_price(-1) {}
 
     void initialize() {
+        max_unit_price = max_mem_price = max_disk_price = -1;
         for (auto region: regions) {
             max_unit_price = std::max(max_unit_price, region.unit_cpu_price);
             max_mem_price = std::max(max_mem_price, region.unit_mem_price);
